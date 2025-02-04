@@ -1,45 +1,91 @@
-# Projeto LED Control com Raspberry Pi Pico
+# Projeto de Semáforo com Raspberry Pi Pico
 
-Este projeto controla a cor de um LED RGB conectado ao Raspberry Pi Pico usando um botão. O LED alterna entre vermelho, amarelo e verde com base no estado atual. O botão inicia a sequência de mudança de cor.
+Este projeto utiliza a função `add_repeating_timer_ms()` da ferramenta Pico SDK para projetar um semáforo com temporização de 3 segundos para cada alteração de sinal.
 
-Atividade 1: Configuração e Conexões
-Componentes
-Raspberry Pi Pico
+## Atividade 1: Temporizador Periódico
 
-LED RGB
+### Componentes
 
-Resistores (220 ohms)
+- Microcontrolador Raspberry Pi Pico W
+- 03 LEDs (vermelho, amarelo e verde)
+- 03 Resistores de 330 Ω
+- Protoboard e cabos jumper
 
-Botão
+### Conexões
 
-Protoboard e cabos jumper
+- LED Vermelho: GPIO 11
+- LED Amarelo: GPIO 12 (Azul, mas será usado para ajustar a cor amarela)
+- LED Verde: GPIO 13
 
-Conexões
-LED Vermelho: GPIO 11
+### Instruções
 
-LED Verde: GPIO 13
+1. Conecte o Raspberry Pi Pico ao seu computador.
+2. Monte o circuito conforme a configuração sugerida.
+3. Utilize os seguintes GPIOs para os LEDs:
+   - LED Vermelho: GPIO 11
+   - LED Amarelo: GPIO 12 (Azul, mas será usado para ajustar a cor amarela)
+   - LED Verde: GPIO 13
 
-LED Azul: GPIO 12
+### Funcionamento do Código
 
-Botão: GPIO 5
+O código controla a cor dos LEDs em um semáforo, alternando entre vermelho, amarelo e verde a cada 3 segundos.
 
-Instruções
-Conecte o Raspberry Pi Pico ao seu computador.
+1. O acionamento dos LEDs (sinais do semáforo) inicia na cor vermelha, alterando para amarela (vermelho + verde) e, em seguida, verde.
+2. O temporizador é ajustado para um atraso de 3 segundos (3.000ms).
+3. A mudança de estado dos LEDs é implementada na função de call-back do temporizador, `repeating_timer_callback()`.
+4. A rotina principal, presente no interior da estrutura de repetição `while`, imprime a mensagem "Semáforo operando normalmente..." a cada segundo (1.000 ms) via porta serial.
 
-Monte o circuito conforme a seção de conexões.
+### Código
 
-Atividade 2: Funcionamento do Código
-Descrição
-O código controla a cor do LED RGB e a alterna entre vermelho, amarelo e verde, utilizando um botão para iniciar a sequência de mudança de cor.
+O código fonte para o projeto é o seguinte:
 
-Funcionamento
-O LED começa desligado.
 
-Quando o botão é pressionado, o LED alterna entre as cores vermelho, amarelo (vermelho + verde) e verde, com um intervalo de 3 segundos entre cada mudança.
-
-Após a sequência, o LED desliga e o botão pode ser pressionado novamente para reiniciar a sequência.
-
-Instruções
-Compile e carregue o código no Raspberry Pi Pico.
-
-Pressione o botão para iniciar a sequência de mudança de cor do LED.
+    #include <stdio.h>
+    #include "pico/stdlib.h"
+    #include "hardware/gpio.h"
+    #include "pico/time.h"
+    
+    #define LED_RED 11
+    #define LED_GREEN 13
+    #define LED_BLUE 12 // Azul, mas será usado para ajustar a cor amarela
+    
+    volatile int state = 0;
+    
+    bool repeating_timer_callback(struct repeating_timer *t) {
+        if (state == 0) { // Vermelho
+            gpio_put(LED_RED, 1);
+            gpio_put(LED_GREEN, 0);
+            gpio_put(LED_BLUE, 0);
+        } else if (state == 1) { // Amarelo (vermelho + verde)
+            gpio_put(LED_RED, 1);
+            gpio_put(LED_GREEN, 1);
+            gpio_put(LED_BLUE, 0);
+        } else { // Verde
+            gpio_put(LED_RED, 0);
+            gpio_put(LED_GREEN, 1);
+            gpio_put(LED_BLUE, 0);
+        }
+        
+        state = (state + 1) % 3; // Alterna entre os estados do semáforo
+        return true;
+    }
+    
+    int main() {
+        stdio_init_all();
+        
+        gpio_init(LED_RED);
+        gpio_init(LED_GREEN);
+        gpio_init(LED_BLUE);
+        
+        gpio_set_dir(LED_RED, GPIO_OUT);
+        gpio_set_dir(LED_GREEN, GPIO_OUT);
+        gpio_set_dir(LED_BLUE, GPIO_OUT);
+        
+        struct repeating_timer timer;
+        add_repeating_timer_ms(3000, repeating_timer_callback, NULL, &timer);
+        
+        while (1) {
+            printf("Semáforo operando normalmente...\n");
+            sleep_ms(1000);
+        }
+    }
